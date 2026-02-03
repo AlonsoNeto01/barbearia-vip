@@ -94,7 +94,7 @@ export default function Home() {
         // Cria o link e abre em nova aba
         // Sem o cifrão ($), com o 55 (Brasil) e o número completo
 const linkZap = `https://wa.me/5593991530375?text=${encodeURIComponent(`Olá! Sou *${nome}*. \nAcabei de agendar um *${servico}* para o dia *${dataFormatada}* às *${horaSelecionada}*. \nAguardo confirmação! 💈`)}`;
-        window.open(linkZap, '_blank');
+        window.location.href = linkZap;
 
       } else {
         mostrarNotificacao(`⚠️ ${resultado.erro}`, "erro");
