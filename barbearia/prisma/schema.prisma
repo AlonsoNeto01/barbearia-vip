@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("NILEDB_URL")
+}
+
+/// Tabela interna do Nile (NÃO APAGUE)
+model tenants {
+  id         String    @id @default(dbgenerated("public.uuid_generate_v7()")) @db.Uuid
+  name       String?
+  created    DateTime  @default(dbgenerated("LOCALTIMESTAMP")) @db.Timestamp(6)
+  updated    DateTime  @default(dbgenerated("LOCALTIMESTAMP")) @db.Timestamp(6)
+  deleted    DateTime? @db.Timestamp(6)
+  compute_id String?   @db.Uuid
+}
+
+/// Sua tabela de verdade (ADICIONADA DE VOLTA)
+model Agendamento {
+  id          String   @id @default(cuid())
+  nomeCliente String
+  telefone    String
+  data        DateTime
+  servico     String
+  precoTotal  Float
+  criadoEm    DateTime @default(now())
+}
