@@ -9,13 +9,13 @@ export default function AdminPage() {
   const [erroSenha, setErroSenha] = useState(false);
 
   // === ESTADOS DO PAINEL ===
-  const [agendamentos, setAgendamentos] = useState([]);
+  const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // === CONFIGURAÇÃO DA SENHA ===
-  const SENHA_SECRETA = "@Barbeiro2026"; // <--- TROQUE SUA SENHA AQUI
+  const SENHA_SECRETA = "@Barbeiro2026"; 
 
-  // 1. Verifica se já fez login antes (ao carregar a página)
+  // 1. Verifica login salvo
   useEffect(() => {
     const loginSalvo = localStorage.getItem("barbearia_admin_token");
     if (loginSalvo === "logado") {
@@ -30,7 +30,7 @@ export default function AdminPage() {
     if (senhaInput === SENHA_SECRETA) {
         setEstaLogado(true);
         setErroSenha(false);
-        localStorage.setItem("barbearia_admin_token", "logado"); // Salva no navegador
+        localStorage.setItem("barbearia_admin_token", "logado");
         carregarDados();
     } else {
         setErroSenha(true);
@@ -38,14 +38,14 @@ export default function AdminPage() {
     }
   };
 
-  // 3. Função de Logout (Sair)
+  // 3. Função de Logout
   const handleLogout = () => {
     setEstaLogado(false);
     localStorage.removeItem("barbearia_admin_token");
     setSenhaInput("");
   };
 
-  // === FUNÇÕES DO DASHBOARD (IGUAIS ANTES) ===
+  // === CARREGAR DADOS ===
   const carregarDados = async () => {
     setLoading(true);
     try {
@@ -59,6 +59,7 @@ export default function AdminPage() {
     }
   };
 
+  // === DELETAR ===
   const deletarItem = async (id: string) => {
     if (!confirm("Deletar este agendamento?")) return;
     try {
@@ -72,11 +73,36 @@ export default function AdminPage() {
     }
   };
 
-  const total = agendamentos.reduce((acc: number, item: any) => acc + Number(item.precoTotal), 0);
-
-  // === RENDERIZAÇÃO CONDICIONAL ===
+  // === CÁLCULOS DO DASHBOARD (A MÁGICA ACONTECE AQUI) 🧙‍♂️ ===
+  const hojeData = new Date();
   
-  // SE NÃO ESTIVER LOGADO -> MOSTRA TELA DE SENHA
+  // 1. Total Geral
+  const totalGeral = agendamentos.reduce((acc, item) => acc + Number(item.precoTotal || 0), 0);
+
+  // 2. Faturamento Hoje
+  const faturamentoHoje = agendamentos.reduce((acc, item) => {
+     const dataItem = new Date(item.data);
+     // Compara se o dia, mês e ano são iguais a hoje
+     if (dataItem.toDateString() === hojeData.toDateString()) {
+         return acc + Number(item.precoTotal || 0);
+     }
+     return acc;
+  }, 0);
+
+  // 3. Faturamento Mês Atual
+  const faturamentoMes = agendamentos.reduce((acc, item) => {
+     const dataItem = new Date(item.data);
+     // Compara se o mês e o ano são iguais
+     if (dataItem.getMonth() === hojeData.getMonth() && dataItem.getFullYear() === hojeData.getFullYear()) {
+         return acc + Number(item.precoTotal || 0);
+     }
+     return acc;
+  }, 0);
+
+  const qtdHoje = agendamentos.filter(item => new Date(item.data).toDateString() === hojeData.toDateString()).length;
+
+
+  // === RENDERIZAÇÃO ===
   if (!estaLogado) {
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-4">
@@ -107,55 +133,96 @@ export default function AdminPage() {
     );
   }
 
-  // SE ESTIVER LOGADO -> MOSTRA O PAINEL
   return (
-    <div className="min-h-screen bg-black text-white p-8 font-sans">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-black text-white p-4 md:p-8 font-sans">
+      <div className="max-w-5xl mx-auto">
         
-        {/* CABEÇALHO COM BOTÃO DE SAIR */}
-        <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-4">
+        {/* CABEÇALHO */}
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-zinc-800 pb-6 gap-4">
             <div>
                 <h1 className="text-3xl font-bold text-yellow-500 flex items-center gap-2">
-                    Painel do Barbeiro 👮‍♂️
+                    Painel do Barbeiro 💈
                 </h1>
+                <p className="text-zinc-500 text-sm mt-1">Bem-vindo, patrão.</p>
             </div>
-            <div className="flex items-center gap-6">
-                <div className="text-right hidden sm:block">
-                    <p className="text-zinc-500 text-xs uppercase tracking-wider">Faturamento</p>
-                    <p className="text-2xl text-green-400 font-mono font-bold">R$ {total.toFixed(2)}</p>
-                </div>
+            <div className="flex items-center gap-4">
+                <button onClick={() => carregarDados()} className="text-zinc-400 hover:text-white text-sm underline">
+                    Atualizar Lista
+                </button>
                 <button 
                     onClick={handleLogout}
-                    className="bg-zinc-800 hover:bg-red-500/20 hover:text-red-500 text-zinc-400 px-4 py-2 rounded-lg text-sm font-bold transition-all border border-zinc-700"
+                    className="bg-zinc-800 hover:bg-red-900/30 hover:text-red-400 text-zinc-300 px-4 py-2 rounded-lg text-sm font-bold transition-all border border-zinc-700"
                 >
                     Sair 🚪
                 </button>
             </div>
         </div>
 
+        {/* === CARDS DE FATURAMENTO (NOVO) === */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            {/* HOJE */}
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10 text-5xl">📅</div>
+                <h3 className="text-zinc-400 text-xs uppercase font-bold mb-1">Hoje</h3>
+                <p className="text-3xl font-bold text-white">R$ {faturamentoHoje.toFixed(2)}</p>
+                <span className="text-xs text-green-500 mt-2 block">{qtdHoje} clientes hoje</span>
+            </div>
+
+            {/* MÊS */}
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10 text-5xl">💰</div>
+                <h3 className="text-zinc-400 text-xs uppercase font-bold mb-1">Este Mês</h3>
+                <p className="text-3xl font-bold text-yellow-500">R$ {faturamentoMes.toFixed(2)}</p>
+                <span className="text-xs text-zinc-500 mt-2 block">Acumulado</span>
+            </div>
+
+            {/* TOTAL */}
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10 text-5xl">📈</div>
+                <h3 className="text-zinc-400 text-xs uppercase font-bold mb-1">Total Geral</h3>
+                <p className="text-3xl font-bold text-white">R$ {totalGeral.toFixed(2)}</p>
+                <span className="text-xs text-zinc-500 mt-2 block">{agendamentos.length} agendamentos</span>
+            </div>
+        </div>
+
+        {/* LISTA DE AGENDAMENTOS */}
         {loading ? (
-            <div className="flex justify-center py-20 text-zinc-500 animate-pulse">Carregando dados...</div>
+            <div className="flex justify-center py-20 text-zinc-500 animate-pulse">
+                Calculando faturamento e carregando lista...
+            </div>
         ) : (
             <div className="bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 shadow-lg">
-                <div className="grid grid-cols-1 divide-y divide-zinc-800">
+                <div className="p-4 bg-zinc-950 border-b border-zinc-800">
+                    <h2 className="font-bold text-white">Agenda Completa</h2>
+                </div>
+                
+                <div className="divide-y divide-zinc-800">
                     {agendamentos.map((item: any) => (
                         <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 hover:bg-zinc-800/30 transition-colors gap-4">
                             <div>
                                 <div className="flex items-center gap-2">
                                     <p className="font-bold text-lg text-white">{item.nomeCliente}</p>
-                                    <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">{item.telefone}</span>
+                                    <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700 uppercase tracking-wide">
+                                        {item.telefone}
+                                    </span>
                                 </div>
-                                <p className="text-yellow-500/80 text-sm mt-1">
-                                    {item.servico} • {new Date(item.data).toLocaleDateString('pt-BR')} às <span className="text-white font-bold">{new Date(item.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                                <p className="text-yellow-500/80 text-sm mt-1 flex items-center gap-2">
+                                    <span>✂️ {item.servico}</span>
+                                    <span className="text-zinc-600">•</span>
+                                    <span>📅 {new Date(item.data).toLocaleDateString('pt-BR')}</span>
+                                    <span className="text-zinc-600">•</span>
+                                    <span className="text-white font-bold">⏰ {item.hora || new Date(item.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                                 </p>
                             </div>
                             
                             <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                <span className="text-green-400 font-mono font-bold text-lg">R$ {item.precoTotal.toFixed(2)}</span>
+                                <span className="text-green-400 font-mono font-bold text-lg">
+                                    R$ {Number(item.precoTotal).toFixed(2)}
+                                </span>
                                 <button 
                                     onClick={() => deletarItem(item.id)} 
                                     className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10 p-3 rounded-lg transition-all"
-                                    title="Cancelar Agendamento"
+                                    title="Deletar Agendamento"
                                 >
                                     🗑️
                                 </button>
@@ -167,7 +234,7 @@ export default function AdminPage() {
                 {agendamentos.length === 0 && (
                     <div className="p-12 text-center">
                         <p className="text-4xl mb-4">🌵</p>
-                        <p className="text-zinc-500">Nenhum agendamento por enquanto.</p>
+                        <p className="text-zinc-500">Nenhum agendamento encontrado.</p>
                     </div>
                 )}
             </div>
