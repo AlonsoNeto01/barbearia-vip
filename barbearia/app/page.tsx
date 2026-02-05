@@ -117,7 +117,7 @@ export default function Home() {
           alt="Background Barbearia" 
           className="w-full h-full object-cover opacity-30"
           onError={(e) => {
-             // Fallback caso a imagem não carregue: usa uma da internet
+             // Se der erro, carrega imagem da internet
              e.currentTarget.src = "https://images.unsplash.com/photo-1503951914205-98c43ce6436a?q=80&w=2000&auto=format&fit=crop"
           }}
         />
@@ -142,9 +142,9 @@ export default function Home() {
           {/* CABEÇALHO COM LOGO */}
           <header className="flex items-center justify-between px-6 py-6 max-w-6xl mx-auto w-full">
             <div className="flex items-center gap-4">
-                {/* LOGO DA EMPRESA (logo.png na pasta public) */}
+                {/* LOGO DA EMPRESA (buteko.jpg na pasta public) */}
                 <div className="w-16 h-16 md:w-20 md:h-20 bg-black/50 rounded-full border-2 border-amber-500 p-1 shadow-lg shadow-amber-500/20 overflow-hidden flex items-center justify-center">
-                    <img src="barbearia/public/fundo.jpg" alt="Logo" className="w-full h-full object-contain rounded-full" />
+                    <img src="/buteko.jpg" alt="Logo" className="w-full h-full object-cover" />
                 </div>
                 
                 <div className="flex flex-col">
