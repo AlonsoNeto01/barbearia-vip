@@ -90,7 +90,7 @@ export default function Home() {
             const dataObj = new Date(dataSelecionada + 'T00:00:00'); 
             const dataFormatada = dataObj.toLocaleDateString('pt-BR');
             
-            const mensagem = `Olá! Sou *${nome}*. \nAcabei de agendar um *${servico}* para o dia *${dataFormatada}* às *${horaSelecionada}*. \nAguardo confirmação! 💈`;
+            const mensagem = `Olá! Sou *${nome}*. \nAcabei de agendar um *${servico}* para o dia *${dataFormatada}* às *${horaSelecionada}*. \nAguardo confirmação!`;
             
             const linkZap = `https://wa.me/${TELEFONE_BARBEIRO}?text=${encodeURIComponent(mensagem)}`;
             window.location.href = linkZap;
