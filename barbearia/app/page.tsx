@@ -144,7 +144,7 @@ export default function Home() {
             <div className="flex items-center gap-4">
                 {/* LOGO DA EMPRESA (logo.png na pasta public) */}
                 <div className="w-16 h-16 md:w-20 md:h-20 bg-black/50 rounded-full border-2 border-amber-500 p-1 shadow-lg shadow-amber-500/20 overflow-hidden flex items-center justify-center">
-                    <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                    <img src="/buteko.jpg" alt="Logo" className="w-full h-full object-contain rounded-full" />
                 </div>
                 
                 <div className="flex flex-col">
