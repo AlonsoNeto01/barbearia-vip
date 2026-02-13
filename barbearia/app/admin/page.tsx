@@ -3,19 +3,24 @@
 import { useEffect, useState } from "react";
 
 export default function AdminPage() {
-  // === ESTADOS DE SEGURANÇA ===
+  // === ESTADOS ===
   const [estaLogado, setEstaLogado] = useState(false);
   const [senhaInput, setSenhaInput] = useState("");
   const [erroSenha, setErroSenha] = useState(false);
-
-  // === ESTADOS DO PAINEL ===
+  
+  const [stats, setStats] = useState<any>(null);
   const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // === CONFIGURAÇÃO DA SENHA ===
   const SENHA_SECRETA = "@Barbeiro2026"; 
 
-  // 1. Verifica login salvo
+  // === 📱 CONFIGURE OS NÚMEROS DOS BARBEIROS AQUI ===
+  const TELEFONES_BARBEIROS: Record<string, string> = {
+    "Pedro": "5593991530375",   // Número do Pedro (Formato: 55 + DDD + Numero)
+    "Elcivan": "5593999999999"  // <--- TROQUE PELO ZAP DO ELCIVAN
+  };
+
+  // 1. Verifica login
   useEffect(() => {
     const loginSalvo = localStorage.getItem("barbearia_admin_token");
     if (loginSalvo === "logado") {
@@ -24,221 +29,204 @@ export default function AdminPage() {
     }
   }, []);
 
-  // 2. Função de Login
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (senhaInput === SENHA_SECRETA) {
         setEstaLogado(true);
-        setErroSenha(false);
         localStorage.setItem("barbearia_admin_token", "logado");
         carregarDados();
     } else {
         setErroSenha(true);
-        setSenhaInput("");
     }
   };
 
-  // 3. Função de Logout
   const handleLogout = () => {
     setEstaLogado(false);
     localStorage.removeItem("barbearia_admin_token");
-    setSenhaInput("");
   };
 
-  // === CARREGAR DADOS ===
   const carregarDados = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/listar");
-      const data = await res.json();
-      setAgendamentos(data.lista || []);
+        const resDash = await fetch("/api/dashboard");
+        const dadosDash = await resDash.json();
+        setStats(dadosDash);
+
+        const resLista = await fetch("/api/admin/listar");
+        const dadosLista = await resLista.json();
+        setAgendamentos(dadosLista.lista || []);
+
     } catch (error) {
-      console.error("Erro:", error);
+        console.error("Erro ao carregar", error);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
-  // === DELETAR ===
   const deletarItem = async (id: string) => {
     if (!confirm("Deletar este agendamento?")) return;
-    try {
-        await fetch("/api/deletar", {
-            method: "POST", 
-            body: JSON.stringify({ id })
-        });
-        carregarDados();
-    } catch (error) {
-        alert("Erro ao deletar");
-    }
+    await fetch("/api/deletar", { method: "POST", body: JSON.stringify({ id }) });
+    carregarDados();
   };
 
-  // === CÁLCULOS DO DASHBOARD (A MÁGICA ACONTECE AQUI) 🧙‍♂️ ===
-  const hojeData = new Date();
+  // === FUNÇÕES DE WHATSAPP 💬 ===
   
-  // 1. Total Geral
-  const totalGeral = agendamentos.reduce((acc, item) => acc + Number(item.precoTotal || 0), 0);
+  const avisarBarbeiro = (item: any) => {
+    const telefoneBarbeiro = TELEFONES_BARBEIROS[item.barbeiro];
+    
+    if (!telefoneBarbeiro || telefoneBarbeiro.includes("0000")) {
+        alert(`O telefone do ${item.barbeiro} não está configurado no código!`);
+        return;
+    }
 
-  // 2. Faturamento Hoje
-  const faturamentoHoje = agendamentos.reduce((acc, item) => {
-     const dataItem = new Date(item.data);
-     // Compara se o dia, mês e ano são iguais a hoje
-     if (dataItem.toDateString() === hojeData.toDateString()) {
-         return acc + Number(item.precoTotal || 0);
-     }
-     return acc;
-  }, 0);
+    const dataFormatada = new Date(item.data).toLocaleDateString('pt-BR');
+    const msg = `Fala guerreiro *${item.barbeiro}*! 💈\nPassando pra avisar que tens um agendamento:\n\n👤 *Cliente:* ${item.nomeCliente}\n✂️ *Serviço:* ${item.servico}\n📅 *Data:* ${dataFormatada}\n⏰ *Hora:* ${item.hora}`;
+    
+    window.open(`https://wa.me/${telefoneBarbeiro}?text=${encodeURIComponent(msg)}`, '_blank');
+  };
 
-  // 3. Faturamento Mês Atual
-  const faturamentoMes = agendamentos.reduce((acc, item) => {
-     const dataItem = new Date(item.data);
-     // Compara se o mês e o ano são iguais
-     if (dataItem.getMonth() === hojeData.getMonth() && dataItem.getFullYear() === hojeData.getFullYear()) {
-         return acc + Number(item.precoTotal || 0);
-     }
-     return acc;
-  }, 0);
+  const cobrarCliente = (item: any) => {
+    // Remove caracteres não numéricos do telefone do cliente
+    const telCliente = item.telefone.replace(/\D/g, "");
+    const dataFormatada = new Date(item.data).toLocaleDateString('pt-BR');
+    
+    const msg = `Olá *${item.nomeCliente}*, tudo bem? ⚔️\nAqui é da Guerreiro Barbearia. Confirmando seu horário com o *${item.barbeiro}*:\n\n📅 ${dataFormatada} às *${item.hora}*\n✂️ ${item.servico}\n\nPodemos confirmar?`;
 
-  const qtdHoje = agendamentos.filter(item => new Date(item.data).toDateString() === hojeData.toDateString()).length;
+    window.open(`https://wa.me/55${telCliente}?text=${encodeURIComponent(msg)}`, '_blank');
+  };
 
 
-  // === RENDERIZAÇÃO ===
+  // === TELA DE LOGIN ===
   if (!estaLogado) {
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-4">
-            <div className="bg-zinc-900 p-8 rounded-2xl border border-zinc-800 shadow-2xl w-full max-w-sm text-center">
-                <span className="text-5xl mb-4 block">🔒</span>
-                <h1 className="text-2xl font-bold text-white mb-2">Área Restrita</h1>
-                <p className="text-zinc-400 mb-6 text-sm">Digite a senha do administrador.</p>
-                
+            <div className="bg-zinc-900 p-8 rounded-2xl border border-zinc-800 w-full max-w-sm text-center shadow-2xl shadow-red-900/20">
+                <img src="/guerreiro.jpg" className="w-24 h-24 mx-auto rounded-full border-4 border-red-900 mb-4 object-cover"/>
+                <h1 className="text-xl font-bold text-white mb-4 uppercase tracking-widest">Área Restrita</h1>
                 <form onSubmit={handleLogin} className="space-y-4">
-                    <input 
-                        type="password" 
-                        value={senhaInput}
-                        onChange={(e) => setSenhaInput(e.target.value)}
-                        placeholder="Senha..." 
-                        className={`w-full bg-black border rounded-lg p-3 text-white focus:outline-none transition-all
-                            ${erroSenha ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-700 focus:border-yellow-500'}
-                        `}
-                    />
-                    
+                    <input type="password" value={senhaInput} onChange={(e) => setSenhaInput(e.target.value)} placeholder="Senha..." className="w-full bg-black border border-zinc-700 rounded-lg p-3 text-white focus:border-red-600 outline-none" />
                     {erroSenha && <p className="text-red-500 text-xs font-bold">Senha incorreta!</p>}
-
-                    <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-3 rounded-lg hover:bg-yellow-400 transition-colors">
-                        Entrar
-                    </button>
+                    <button type="submit" className="w-full bg-red-700 text-white font-bold py-3 rounded-lg hover:bg-red-600 transition-colors">ENTRAR</button>
                 </form>
             </div>
         </div>
     );
   }
 
+  // === PAINEL ===
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-8 font-sans">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-black text-white p-4 md:p-8 font-sans selection:bg-red-600">
+      <div className="max-w-6xl mx-auto">
         
-        {/* CABEÇALHO */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-zinc-800 pb-6 gap-4">
-            <div>
-                <h1 className="text-3xl font-bold text-yellow-500 flex items-center gap-2">
-                    Painel do Barbeiro 💈
-                </h1>
-                <p className="text-zinc-500 text-sm mt-1">Bem-vindo, patrão.</p>
-            </div>
-            <div className="flex items-center gap-4">
-                <button onClick={() => carregarDados()} className="text-zinc-400 hover:text-white text-sm underline">
-                    Atualizar Lista
-                </button>
-                <button 
-                    onClick={handleLogout}
-                    className="bg-zinc-800 hover:bg-red-900/30 hover:text-red-400 text-zinc-300 px-4 py-2 rounded-lg text-sm font-bold transition-all border border-zinc-700"
-                >
-                    Sair 🚪
-                </button>
-            </div>
-        </div>
-
-        {/* === CARDS DE FATURAMENTO (NOVO) === */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-            {/* HOJE */}
-            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10 text-5xl">📅</div>
-                <h3 className="text-zinc-400 text-xs uppercase font-bold mb-1">Hoje</h3>
-                <p className="text-3xl font-bold text-white">R$ {faturamentoHoje.toFixed(2)}</p>
-                <span className="text-xs text-green-500 mt-2 block">{qtdHoje} clientes hoje</span>
-            </div>
-
-            {/* MÊS */}
-            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10 text-5xl">💰</div>
-                <h3 className="text-zinc-400 text-xs uppercase font-bold mb-1">Este Mês</h3>
-                <p className="text-3xl font-bold text-yellow-500">R$ {faturamentoMes.toFixed(2)}</p>
-                <span className="text-xs text-zinc-500 mt-2 block">Acumulado</span>
-            </div>
-
-            {/* TOTAL */}
-            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10 text-5xl">📈</div>
-                <h3 className="text-zinc-400 text-xs uppercase font-bold mb-1">Total Geral</h3>
-                <p className="text-3xl font-bold text-white">R$ {totalGeral.toFixed(2)}</p>
-                <span className="text-xs text-zinc-500 mt-2 block">{agendamentos.length} agendamentos</span>
-            </div>
-        </div>
-
-        {/* LISTA DE AGENDAMENTOS */}
-        {loading ? (
-            <div className="flex justify-center py-20 text-zinc-500 animate-pulse">
-                Calculando faturamento e carregando lista...
-            </div>
-        ) : (
-            <div className="bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 shadow-lg">
-                <div className="p-4 bg-zinc-950 border-b border-zinc-800">
-                    <h2 className="font-bold text-white">Agenda Completa</h2>
+            <div className="flex items-center gap-3">
+                <img src="/guerreiro.jpg" className="w-12 h-12 rounded-full border-2 border-red-600 object-cover"/>
+                <div>
+                    <h1 className="text-2xl font-black text-white uppercase italic">Painel do <span className="text-red-600">Comandante</span></h1>
+                    <p className="text-zinc-500 text-xs">Visão geral do campo de batalha</p>
                 </div>
-                
-                <div className="divide-y divide-zinc-800">
-                    {agendamentos.map((item: any) => (
-                        <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 hover:bg-zinc-800/30 transition-colors gap-4">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <p className="font-bold text-lg text-white">{item.nomeCliente}</p>
-                                    <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700 uppercase tracking-wide">
-                                        {item.telefone}
-                                    </span>
-                                </div>
-                                <p className="text-yellow-500/80 text-sm mt-1 flex items-center gap-2">
-                                    <span>✂️ {item.servico}</span>
-                                    <span className="text-zinc-600">•</span>
-                                    <span>📅 {new Date(item.data).toLocaleDateString('pt-BR')}</span>
-                                    <span className="text-zinc-600">•</span>
-                                    <span className="text-white font-bold">⏰ {item.hora || new Date(item.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-                                </p>
+            </div>
+            <button onClick={handleLogout} className="text-zinc-500 hover:text-red-500 text-sm font-bold uppercase tracking-wider">Sair 🚪</button>
+        </div>
+
+        {/* CARDS KPI */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl relative overflow-hidden group hover:border-red-900/50 transition-all">
+                <h3 className="text-zinc-500 text-xs uppercase font-bold mb-1">Faturamento Hoje</h3>
+                <p className="text-4xl font-bold text-white">R$ {stats?.faturamentoDia?.toFixed(2) || '0.00'}</p>
+                <div className="absolute top-4 right-4 text-red-900/20 text-4xl font-black">DIA</div>
+            </div>
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl relative overflow-hidden group hover:border-red-900/50 transition-all">
+                <h3 className="text-zinc-500 text-xs uppercase font-bold mb-1">Faturamento Mês</h3>
+                <p className="text-4xl font-bold text-red-600">R$ {stats?.faturamentoMes?.toFixed(2) || '0.00'}</p>
+                <div className="absolute top-4 right-4 text-red-900/20 text-4xl font-black">MÊS</div>
+            </div>
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl relative overflow-hidden group hover:border-red-900/50 transition-all">
+                <h3 className="text-zinc-500 text-xs uppercase font-bold mb-1">Total Missões</h3>
+                <p className="text-4xl font-bold text-white">{stats?.totalAgendamentos || 0}</p>
+                <div className="absolute top-4 right-4 text-red-900/20 text-4xl font-black">ALL</div>
+            </div>
+        </div>
+
+        {/* LISTA */}
+        <div className="bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 shadow-xl shadow-black/50">
+            <div className="p-5 border-b border-zinc-800 flex justify-between items-center bg-zinc-950">
+                <h2 className="font-bold text-lg uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
+                    Próximas Missões
+                </h2>
+                <button onClick={carregarDados} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded transition-colors">🔄 Atualizar</button>
+            </div>
+            
+            <div className="divide-y divide-zinc-800">
+                {agendamentos.map((item: any) => {
+                    // Lógica para destacar quem é o barbeiro
+                    const isPedro = item.barbeiro === "Pedro";
+                    
+                    return (
+                    <div key={item.id} className="p-5 hover:bg-zinc-800/30 transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        
+                        {/* INFORMAÇÕES */}
+                        <div className="flex items-start gap-4">
+                            {/* Avatar do Barbeiro */}
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 ${isPedro ? 'border-zinc-500 bg-zinc-800' : 'border-yellow-700 bg-yellow-900/20'}`} title={item.barbeiro}>
+                                {isPedro ? '🧔🏻‍♂️' : '👨🏾'}
                             </div>
-                            
-                            <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                <span className="text-green-400 font-mono font-bold text-lg">
-                                    R$ {Number(item.precoTotal).toFixed(2)}
-                                </span>
-                                <button 
-                                    onClick={() => deletarItem(item.id)} 
-                                    className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10 p-3 rounded-lg transition-all"
-                                    title="Deletar Agendamento"
-                                >
-                                    🗑️
-                                </button>
+
+                            <div>
+                                <p className="font-bold text-lg text-white">{item.nomeCliente}</p>
+                                <p className="text-sm text-zinc-400 flex items-center gap-2">
+                                    <span className="text-red-500 font-bold">{item.hora}</span>
+                                    <span>•</span>
+                                    <span>{new Date(item.data).toLocaleDateString()}</span>
+                                    <span>•</span>
+                                    <span className="bg-zinc-800 px-2 py-0.5 rounded text-xs uppercase text-zinc-300">{item.servico}</span>
+                                </p>
+                                <p className="text-xs text-zinc-600 mt-1">Barbeiro: <strong className={isPedro ? 'text-zinc-300' : 'text-yellow-600'}>{item.barbeiro}</strong></p>
                             </div>
                         </div>
-                    ))}
-                </div>
-                
+
+                        {/* AÇÕES */}
+                        <div className="flex items-center gap-2 w-full md:w-auto">
+                            
+                            {/* Botão Avisar Barbeiro */}
+                            <button 
+                                onClick={() => avisarBarbeiro(item)}
+                                className="flex-1 md:flex-none bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 px-4 py-2 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all"
+                                title={`Avisar ${item.barbeiro}`}
+                            >
+                                🔔 <span className="hidden md:inline">Avisar Barbeiro</span>
+                            </button>
+
+                            {/* Botão Confirmar Cliente */}
+                            <button 
+                                onClick={() => cobrarCliente(item)}
+                                className="flex-1 md:flex-none bg-green-900/30 hover:bg-green-900/50 text-green-400 border border-green-900 px-4 py-2 rounded text-sm font-medium flex items-center justify-center gap-2 transition-all"
+                                title="Confirmar com Cliente"
+                            >
+                                ✅ <span className="hidden md:inline">Confirmar</span>
+                            </button>
+
+                            {/* Botão Deletar */}
+                            <button 
+                                onClick={() => deletarItem(item.id)} 
+                                className="bg-red-900/20 hover:bg-red-900/40 text-red-500 p-2 rounded border border-red-900/30 transition-all"
+                            >
+                                🗑️
+                            </button>
+                        </div>
+
+                    </div>
+                )})}
+
                 {agendamentos.length === 0 && (
-                    <div className="p-12 text-center">
-                        <p className="text-4xl mb-4">🌵</p>
-                        <p className="text-zinc-500">Nenhum agendamento encontrado.</p>
+                    <div className="p-10 text-center text-zinc-500">
+                        Nenhuma missão agendada, comandante.
                     </div>
                 )}
             </div>
-        )}
+        </div>
+
       </div>
     </div>
   );

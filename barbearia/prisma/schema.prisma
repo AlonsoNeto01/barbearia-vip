@@ -7,7 +7,7 @@ datasource db {
   url      = env("NILEDB_URL")
 }
 
-/// Tabela interna do Nile (NÃO APAGUE)
+/// Tabela interna do Nile (Mantenha sempre)
 model tenants {
   id         String    @id @default(dbgenerated("public.uuid_generate_v7()")) @db.Uuid
   name       String?
@@ -17,13 +17,13 @@ model tenants {
   compute_id String?   @db.Uuid
 }
 
-/// Sua tabela de verdade (ADICIONADA DE VOLTA)
+/// Tabela da Barbearia (Limpa e Pronta)
 model Agendamento {
-  id          String   @id @default(cuid())
-  nomeCliente String
-  telefone    String
-  data        DateTime
-  servico     String
-  precoTotal  Float
-  criadoEm    DateTime @default(now())
+  id        String   @id @default(cuid())
+  nome      String   // Agora é obrigatório
+  telefone  String   // Agora é obrigatório
+  data      DateTime 
+  servico   String   
+  barbeiro  String   @default("Pedro") // Pedro é o padrão, mas pode mudar
+  createdAt DateTime @default(now())
 }
